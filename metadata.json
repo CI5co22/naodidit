@@ -1,0 +1,6 @@
+{
+  "name": "QuestMate - Productividad Diaria",
+  "description": "App de productividad diaria, horas beca, presupuesto con compañero virtual gamificado Maya y seguridad PIN.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
