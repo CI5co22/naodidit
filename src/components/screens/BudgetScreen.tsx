@@ -1407,7 +1407,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
                   <p className="text-[11px] font-semibold text-[#6f7b64]">Disponible para retirar: Q{goalWithdrawalAvailable.toFixed(2)}. El retiro también aparecerá en Gastos Recientes.</p>
                 </>
               )}
-            </div>
+            </section>
             {goalError && <p role="alert" className="text-xs font-bold text-[#ba1a1a]">{goalError}</p>}
             <div className="flex gap-2">
               <button
