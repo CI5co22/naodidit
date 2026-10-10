@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'scholarship-roadmap':
         return { label: 'REGISTRAR HORAS', icon: 'more_time' };
       case 'focus-session':
-        return { label: 'INICIAR ENFOQUE', icon: 'play_arrow' };
+        return null;
       case 'mood-tracker':
         return null;
     }
@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 bg-[#f5f3f3] px-3 py-1 rounded-xl text-xs font-bold text-[#1b1c1c] shadow-[0_2px_0_0_#e4e2e2]">
               <span className="material-symbols-outlined text-[16px] text-[#006590]">account_balance_wallet</span>
-              <span>Presupuesto: <strong>Q{monthlyBudget.toLocaleString('en-US')}</strong></span>
+              <span>Presupuesto: <strong>Q{monthlyBudget.toFixed(2)}</strong></span>
             </div>
             <div className="hidden sm:flex items-center gap-1 bg-[#87fe45] text-[#082100] text-xs font-black px-2.5 py-0.5 rounded-full shadow-[0_2px_0_0_#6be026]">
               <span className="material-symbols-outlined text-[14px]">check_circle</span>

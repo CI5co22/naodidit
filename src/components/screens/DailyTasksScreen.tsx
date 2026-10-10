@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Task, TaskUserCategory } from '../../types';
 import { sounds } from '../../utils/sound';
@@ -8,6 +8,7 @@ interface DailyTasksScreenProps {
   energy: number;
   maxEnergy: number;
   categories: TaskUserCategory[];
+  animationsEnabled: boolean;
   onToggleTask: (taskId: string) => void;
   onAddTask: (title: string, category: string, subject?: string) => void;
   onIncrementStep: (taskId: string) => void;
@@ -25,6 +26,7 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
   energy,
   maxEnergy,
   categories,
+  animationsEnabled,
   onToggleTask,
   onAddTask,
   onIncrementStep,
@@ -60,6 +62,9 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
   // Waving state when "Saludar a Nao" is pressed
   const [isWaving, setIsWaving] = useState(false);
   const [wavingGreeting, setWavingGreeting] = useState<string | null>(null);
+  const [is67Animating, setIs67Animating] = useState(false);
+  const [current67Frame, setCurrent67Frame] = useState<'6' | '7' | null>(null);
+  const is67AnimatingRef = useRef(false);
 
   const CUATE_GREETINGS = [
     '“¡Qué onda vos! ¡A darle con todo hoy, no te ahueves que sí sale! 💥”',
@@ -131,12 +136,12 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
     onMoveTaskToCategory(draggedTaskId, catId);
     sounds.playPop();
     try {
-      confetti({
-        particleCount: 20,
-        spread: 40,
-        origin: { y: 0.3 },
-        colors: ['#1cb0f6', '#58cc02'],
-      });
+      if (animationsEnabled) confetti({
+          particleCount: 20,
+          spread: 40,
+          origin: { y: 0.3 },
+          colors: ['#1cb0f6', '#58cc02'],
+        });
     } catch {
       // ignore
     }
@@ -155,12 +160,12 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
   const handleSaludarNao = () => {
     sounds.playCheer();
     try {
-      confetti({
-        particleCount: 35,
-        spread: 60,
-        origin: { y: 0.6, x: 0.8 },
-        colors: ['#1cb0f6', '#58cc02', '#ff9c27'],
-      });
+      if (animationsEnabled) confetti({
+          particleCount: 35,
+          spread: 60,
+          origin: { y: 0.6, x: 0.8 },
+          colors: ['#1cb0f6', '#58cc02', '#ff9c27'],
+        });
     } catch {
       // ignore
     }
@@ -174,6 +179,25 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
       setIsWaving(false);
       setWavingGreeting(null);
     }, 3000);
+  };
+
+  const handle67Animation = async () => {
+    if (is67AnimatingRef.current || isWaving) return;
+    is67AnimatingRef.current = true;
+    setIs67Animating(true);
+
+    try {
+      for (let repetition = 0; repetition < 4; repetition += 1) {
+        setCurrent67Frame('6');
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
+        setCurrent67Frame('7');
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
+      }
+    } finally {
+      setCurrent67Frame(null);
+      setIs67Animating(false);
+      is67AnimatingRef.current = false;
+    }
   };
 
   const handleAddNote = (e: React.FormEvent) => {
@@ -222,7 +246,8 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
           <button
             type="button"
             onClick={handleSaludarNao}
-            className="btn-tactile-blue px-4 py-2 rounded-xl text-xs font-black uppercase cursor-pointer whitespace-nowrap"
+            disabled={is67Animating}
+            className="btn-tactile-blue px-4 py-2 rounded-xl text-xs font-black uppercase cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Saludar a Nao (Recargar)
           </button>
@@ -475,7 +500,7 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
                       if (dragOverTaskId === task.id) setDragOverTaskId(null);
                     }}
                     onDrop={(e) => handleDropOnTask(e, task.id)}
-                    className={`group bg-white rounded-xl p-4 shadow-[0_4px_0_0_#e4e2e2] hover:shadow-[0_4px_0_0_#becbb1] transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border cursor-grab active:cursor-grabbing ${
+                    className={`group bg-white rounded-xl p-3 sm:p-4 shadow-[0_4px_0_0_#e4e2e2] hover:shadow-[0_4px_0_0_#becbb1] transition-all flex flex-row items-center justify-between gap-2 sm:gap-4 border cursor-grab active:cursor-grabbing ${
                       isItemDragOver
                         ? 'border-2 border-[#1cb0f6] bg-[#c8e6ff]/25 shadow-md -translate-y-1'
                         : isSelfDragged
@@ -483,7 +508,7 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
                         : 'border-[#efeded]'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       {/* Drag Handle Icon - only visible while dragging */}
                       {draggedTaskId === task.id && (
                         <div className="p-1 rounded-lg text-[#006590] flex-shrink-0">
@@ -498,17 +523,17 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
                         onClick={() => {
                           sounds.playCheck();
                           try {
-                            confetti({
-                              particleCount: 25,
-                              spread: 50,
-                              origin: { y: 0.7 },
-                            });
+                            if (animationsEnabled) confetti({
+                                particleCount: 25,
+                                spread: 50,
+                                origin: { y: 0.7 },
+                              });
                           } catch {
                             // ignore
                           }
                           onToggleTask(task.id);
                         }}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#f5f3f3] text-transparent hover:text-[#006590] hover:bg-[#c8e6ff]/50 shadow-[0_3px_0_0_#becbb1] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#f5f3f3] text-transparent hover:text-[#006590] hover:bg-[#c8e6ff]/50 shadow-[0_3px_0_0_#becbb1] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[24px]">check</span>
                       </button>
@@ -539,7 +564,7 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 mt-1 flex-wrap text-[#3f4a36] text-xs font-semibold">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap text-[#3f4a36] text-[11px] sm:text-xs font-semibold">
                           {task.dueDate && (
                             <span className="flex items-center gap-1 text-[#ba1a1a] font-bold">
                               <span className="material-symbols-outlined text-[15px]">schedule</span>
@@ -588,8 +613,8 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                      <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#f5f3f3] text-[#3f4a36]">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 self-center">
+                      <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-[#f5f3f3] text-[#3f4a36]">
                         {task.currentStep ? 'En progreso' : 'Pendiente'}
                       </span>
 
@@ -600,7 +625,7 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
                           onDeleteTask(task.id);
                         }}
                         title="Eliminar tarea"
-                        className="opacity-0 group-hover:opacity-100 text-[#3f4a36] hover:text-[#ba1a1a] p-1 transition-opacity cursor-pointer"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-[#3f4a36] hover:text-[#ba1a1a] p-1 transition-opacity cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>
@@ -676,8 +701,8 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
             {/* Pure Character without ANY drop-shadow */}
             <div className="w-40 h-40 flex items-center justify-center my-2">
               <img
-                src={isWaving ? '/naoo-wave.png' : '/maya.png'}
-                alt="Naoo"
+                src={is67Animating ? (current67Frame === '6' ? '/naoo-67-6.png' : '/naoo-67-7.png') : isWaving ? '/naoo-wave.png' : '/maya.png'}
+                alt={is67Animating ? `Naoo mostrando el ${current67Frame}` : 'Naoo'}
                 className="w-full h-full object-contain pixelated transition-transform duration-200"
               />
             </div>
@@ -694,14 +719,28 @@ export const DailyTasksScreen: React.FC<DailyTasksScreenProps> = ({
             </p>
 
             {/* "Saludar a Nao" Blue Tactile Button */}
-            <button
-              type="button"
-              onClick={handleSaludarNao}
-              className="mt-4 w-full py-2.5 btn-tactile-blue text-xs font-black uppercase rounded-xl cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">waving_hand</span>
-              <span>Saludar a Nao</span>
-            </button>
+            <div className="mt-4 w-full flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaludarNao}
+                disabled={is67Animating}
+                className="flex-1 min-w-0 py-2.5 btn-tactile-blue text-xs font-black uppercase rounded-xl cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-[18px]">waving_hand</span>
+                <span>Saludar a Nao</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handle67Animation(); }}
+                disabled={is67Animating || isWaving}
+                aria-label={is67Animating ? 'Animación 67 en curso' : isWaving ? 'Esperá a que termine el saludo para activar 67' : 'Activar animación 67'}
+                aria-busy={is67Animating}
+                title={is67Animating ? 'Animación en curso' : isWaving ? 'Esperá a que termine el saludo' : 'Activar la animación 67'}
+                className="h-11 min-w-12 px-3 rounded-xl bg-[#e8f5fc] border border-[#c8e6ff] text-[#006590] text-sm font-black shadow-[0_3px_0_0_#a5d7ee] hover:bg-[#d9effa] active:translate-y-[3px] active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                67
+              </button>
+            </div>
           </div>
 
           {/* Notas del Día */}

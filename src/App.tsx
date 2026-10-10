@@ -35,9 +35,38 @@ import { ScholarshipScreen } from './components/screens/ScholarshipScreen';
 import { FocusSessionScreen } from './components/screens/FocusSessionScreen';
 import { MoodTrackerScreen } from './components/screens/MoodTrackerScreen';
 import { NewTaskModal } from './components/modals/NewTaskModal';
+import { FidgetCenter, DEFAULT_FIDGET_PREFERENCES, FidgetPreferences } from './components/FidgetCenter';
 
 export default function App({ onLogout }: { onLogout: () => void }) {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('daily-quests');
+  const [isFidgetOpen, setIsFidgetOpen] = useState(false);
+  const [fidgetPreferences, setFidgetPreferences] = useState<FidgetPreferences>(() => {
+    try {
+      const saved = localStorage.getItem('naoo_fidget_preferences');
+      return saved ? { ...DEFAULT_FIDGET_PREFERENCES, ...JSON.parse(saved) } : DEFAULT_FIDGET_PREFERENCES;
+    } catch {
+      return DEFAULT_FIDGET_PREFERENCES;
+    }
+  });
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  const animationsEnabled = fidgetPreferences.contextualAnimations && !prefersReducedMotion;
+
+  useEffect(() => {
+    localStorage.setItem('naoo_fidget_preferences', JSON.stringify(fidgetPreferences));
+  }, [fidgetPreferences]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updatePreference = () => setPrefersReducedMotion(media.matches);
+    media.addEventListener('change', updatePreference);
+    return () => media.removeEventListener('change', updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (!animationsEnabled) confetti.reset();
+  }, [animationsEnabled]);
 
   // Energy System (5/5 max, depletes 1 per task completed)
   const [energy, setEnergy] = useState<number>(() => {
@@ -74,6 +103,22 @@ export default function App({ onLogout }: { onLogout: () => void }) {
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>(() => {
     const saved = localStorage.getItem('naoo_budget_cats');
     return saved ? JSON.parse(saved) : INITIAL_BUDGET_CATEGORIES;
+  });
+
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
+    const savedBudget = localStorage.getItem('naoo_monthly_budget');
+    if (savedBudget !== null) {
+      const parsedBudget = Number(savedBudget);
+      if (Number.isFinite(parsedBudget) && parsedBudget >= 0) return parsedBudget;
+    }
+
+    try {
+      const savedCategories = localStorage.getItem('naoo_budget_cats');
+      const categories: BudgetCategory[] = savedCategories ? JSON.parse(savedCategories) : INITIAL_BUDGET_CATEGORIES;
+      return categories.reduce((sum, category) => sum + category.limit, 0);
+    } catch {
+      return INITIAL_BUDGET_CATEGORIES.reduce((sum, category) => sum + category.limit, 0);
+    }
   });
 
   const [quickPresets, setQuickPresets] = useState<QuickPreset[]>(() => {
@@ -132,6 +177,10 @@ export default function App({ onLogout }: { onLogout: () => void }) {
   }, [budgetCategories]);
 
   useEffect(() => {
+    localStorage.setItem('naoo_monthly_budget', String(monthlyBudget));
+  }, [monthlyBudget]);
+
+  useEffect(() => {
     localStorage.setItem('naoo_quick_presets', JSON.stringify(quickPresets));
   }, [quickPresets]);
 
@@ -163,15 +212,17 @@ export default function App({ onLogout }: { onLogout: () => void }) {
   // Refill energy (Saludar a Nao / Tomar un respiro)
   const handleRefillEnergy = () => {
     sounds.playCheer();
-    try {
-      confetti({
-        particleCount: 40,
-        spread: 60,
-        origin: { y: 0.5 },
-        colors: ['#1cb0f6', '#87fe45', '#ff9c27'],
-      });
-    } catch {
-      // ignore
+    if (animationsEnabled) {
+      try {
+        confetti({
+          particleCount: 40,
+          spread: 60,
+          origin: { y: 0.5 },
+          colors: ['#1cb0f6', '#87fe45', '#ff9c27'],
+        });
+      } catch {
+        // ignore
+      }
     }
     setEnergy(maxEnergy);
   };
@@ -305,6 +356,9 @@ export default function App({ onLogout }: { onLogout: () => void }) {
 
   // Budget Actions
   const handleAddExpense = (title: string, categoryId: string, amount: number) => {
+    const category = budgetCategories.find((item) => item.id === categoryId);
+    if (!category || amount <= 0 || category.spent + amount > category.limit) return;
+
     const newRecord: ExpenseRecord = {
       id: `exp-${Date.now()}`,
       title,
@@ -333,8 +387,10 @@ export default function App({ onLogout }: { onLogout: () => void }) {
   const handleEditExpense = (id: string, title: string, categoryId: string, newAmount: number) => {
     const oldExp = expenses.find((e) => e.id === id);
     if (!oldExp) return;
-
-    const diff = newAmount - oldExp.amount;
+    const targetCategory = budgetCategories.find((category) => category.id === categoryId);
+    if (!targetCategory || newAmount <= 0) return;
+    const targetSpentAfterRemovingOldExpense = targetCategory.spent - (oldExp.categoryId === categoryId ? oldExp.amount : 0);
+    if (targetSpentAfterRemovingOldExpense + newAmount > targetCategory.limit) return;
 
     setExpenses((prev) =>
       prev.map((e) => (e.id === id ? { ...e, title, categoryId, amount: newAmount } : e))
@@ -342,9 +398,9 @@ export default function App({ onLogout }: { onLogout: () => void }) {
 
     setBudgetCategories((prev) =>
       prev.map((c) => {
-        if (c.id === categoryId) {
-          return { ...c, spent: c.spent + diff };
-        }
+        if (c.id === oldExp.categoryId && c.id === categoryId) return { ...c, spent: c.spent + newAmount - oldExp.amount };
+        if (c.id === oldExp.categoryId) return { ...c, spent: Math.max(0, c.spent - oldExp.amount) };
+        if (c.id === categoryId) return { ...c, spent: c.spent + newAmount };
         return c;
       })
     );
@@ -363,6 +419,15 @@ export default function App({ onLogout }: { onLogout: () => void }) {
         }
         return c;
       })
+    );
+  };
+
+  const handleResetBudgetCategory = (categoryId: string) => {
+    setExpenses((prev) => prev.filter((expense) => expense.categoryId !== categoryId));
+    setBudgetCategories((prev) =>
+      prev.map((category) =>
+        category.id === categoryId ? { ...category, spent: 0 } : category
+      )
     );
   };
 
@@ -394,8 +459,33 @@ export default function App({ onLogout }: { onLogout: () => void }) {
   const handleUpdateGoalContribution = (amount: number) => {
     setSavingsGoal((prev) => ({
       ...prev,
-      current: Math.min(prev.target, prev.current + amount),
+      current: prev.current + amount,
     }));
+  };
+
+  const handleUpdateGoalDetails = (name: string, target: number) => {
+    setSavingsGoal((prev) => ({ ...prev, name, target }));
+  };
+
+  const handleWithdrawFromSavings = (amount: number, categoryId: string, title: string) => {
+    const category = budgetCategories.find((item) => item.id === categoryId);
+    if (!category || !Number.isFinite(amount) || amount <= 0 || amount > savingsGoal.current || category.spent + amount > category.limit) {
+      return false;
+    }
+
+    const newRecord: ExpenseRecord = {
+      id: `exp-${Date.now()}`,
+      title,
+      categoryId,
+      date: `Hoy, ${new Date().toLocaleTimeString('es-GT', { hour: 'numeric', minute: '2-digit', hour12: true })}`,
+      amount,
+      isRefund: false,
+      icon: 'receipt',
+    };
+    setExpenses((prev) => [newRecord, ...prev]);
+    setBudgetCategories((prev) => prev.map((item) => item.id === categoryId ? { ...item, spent: item.spent + amount } : item));
+    setSavingsGoal((prev) => ({ ...prev, current: Math.max(0, prev.current - amount) }));
+    return true;
   };
 
   // Scholarship Actions
@@ -429,9 +519,6 @@ export default function App({ onLogout }: { onLogout: () => void }) {
       input?.focus();
     } else if (currentTab === 'scholarship-roadmap') {
       setIsLogHoursOpen(true);
-    } else if (currentTab === 'focus-session') {
-      const startBtn = document.querySelector('button') as HTMLButtonElement | null;
-      startBtn?.click();
     } else if (currentTab === 'mood-tracker') {
       // scroll to mood selector
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -441,7 +528,11 @@ export default function App({ onLogout }: { onLogout: () => void }) {
   const totalScholarshipHours = scholarshipRecords.reduce((sum, r) => sum + r.hours, 0);
 
   return (
-    <div className="min-h-screen bg-[#fbf9f8] text-[#1b1c1c] antialiased">
+    <div
+      className="app-root min-h-screen bg-[#fbf9f8] text-[#1b1c1c] antialiased"
+      data-contextual-animations={fidgetPreferences.contextualAnimations && !prefersReducedMotion}
+      data-intensity={fidgetPreferences.intensity}
+    >
       {/* Desktop Fixed Sidebar */}
       <div className="hidden lg:block">
         <Sidebar
@@ -460,7 +551,7 @@ export default function App({ onLogout }: { onLogout: () => void }) {
           currentTab={currentTab}
           energy={energy}
           maxEnergy={maxEnergy}
-          monthlyBudget={budgetCategories.reduce((sum, c) => sum + c.limit, 0)}
+          monthlyBudget={monthlyBudget}
           completedHours={totalScholarshipHours}
           targetHours={targetScholarshipHours}
           onOpenPrimaryAction={handlePrimaryHeaderAction}
@@ -475,6 +566,7 @@ export default function App({ onLogout }: { onLogout: () => void }) {
               energy={energy}
               maxEnergy={maxEnergy}
               categories={taskCategories}
+              animationsEnabled={animationsEnabled}
               onToggleTask={handleToggleTask}
               onAddTask={(title, cat) => handleAddTask(title, cat)}
               onIncrementStep={handleIncrementStep}
@@ -494,14 +586,20 @@ export default function App({ onLogout }: { onLogout: () => void }) {
               expenses={expenses}
               quickPresets={quickPresets}
               savingsGoal={savingsGoal}
+              monthlyBudget={monthlyBudget}
+              onSetMonthlyBudget={setMonthlyBudget}
               onAddExpense={handleAddExpense}
               onEditExpense={handleEditExpense}
               onDeleteExpense={handleDeleteExpense}
+              onResetCategory={handleResetBudgetCategory}
               onAddCategory={handleAddCategory}
               onEditCategory={handleEditCategory}
               onDeleteCategory={handleDeleteCategory}
               onUpdatePresets={handleUpdatePresets}
               onUpdateGoalContribution={handleUpdateGoalContribution}
+              onUpdateGoalDetails={handleUpdateGoalDetails}
+              onWithdrawFromSavings={handleWithdrawFromSavings}
+              animationsEnabled={animationsEnabled}
             />
           )}
 
@@ -515,11 +613,12 @@ export default function App({ onLogout }: { onLogout: () => void }) {
               onResetHours={handleResetScholarshipHours}
               isLogModalOpen={isLogHoursOpen}
               setIsLogModalOpen={setIsLogHoursOpen}
+              animationsEnabled={animationsEnabled}
             />
           )}
 
           {currentTab === 'focus-session' && (
-            <FocusSessionScreen />
+            <FocusSessionScreen animationsEnabled={animationsEnabled} />
           )}
 
           {currentTab === 'mood-tracker' && (
@@ -527,6 +626,7 @@ export default function App({ onLogout }: { onLogout: () => void }) {
               moodHistory={moodHistory}
               onAddMood={handleAddMood}
               onResetWeek={handleResetMoodWeek}
+              animationsEnabled={animationsEnabled}
             />
           )}
         </main>
@@ -611,6 +711,14 @@ export default function App({ onLogout }: { onLogout: () => void }) {
         onClose={() => setIsNewTaskOpen(false)}
         onAddTask={handleAddTask}
         categories={taskCategories}
+      />
+
+      <FidgetCenter
+        isOpen={isFidgetOpen}
+        onClose={() => setIsFidgetOpen(false)}
+        preferences={fidgetPreferences}
+        onChangePreferences={(next) => setFidgetPreferences((previous) => ({ ...previous, ...next }))}
+        onOpen={() => setIsFidgetOpen(true)}
       />
     </div>
   );

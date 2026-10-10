@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import confetti from "canvas-confetti";
 import { sounds } from "../../utils/sound";
 
-export const FocusSessionScreen: React.FC = () => {
+export const FocusSessionScreen: React.FC<{ animationsEnabled: boolean }> = ({ animationsEnabled }) => {
   const [mode, setMode] = useState<"focus" | "break">("focus");
   const [seconds, setSeconds] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
@@ -21,12 +21,12 @@ export const FocusSessionScreen: React.FC = () => {
         sounds.playCheer();
         setCompletedSessions((prev) => prev + 1);
         try {
-          confetti({
-            particleCount: 50,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ["#1cb0f6", "#58cc02", "#ff9c27"],
-          });
+          if (animationsEnabled) confetti({
+              particleCount: 50,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ["#1cb0f6", "#58cc02", "#ff9c27"],
+            });
         } catch {
           // ignore
         }

@@ -12,6 +12,7 @@ interface ScholarshipScreenProps {
   onResetHours: () => void;
   isLogModalOpen: boolean;
   setIsLogModalOpen: (open: boolean) => void;
+  animationsEnabled: boolean;
 }
 
 export const ScholarshipScreen: React.FC<ScholarshipScreenProps> = ({
@@ -23,6 +24,7 @@ export const ScholarshipScreen: React.FC<ScholarshipScreenProps> = ({
   onResetHours,
   isLogModalOpen,
   setIsLogModalOpen,
+  animationsEnabled,
 }) => {
   const [activity, setActivity] = useState('');
   const [hours, setHours] = useState('4');
@@ -48,12 +50,12 @@ export const ScholarshipScreen: React.FC<ScholarshipScreenProps> = ({
     });
 
     try {
-      confetti({
-        particleCount: 35,
-        spread: 60,
-        origin: { y: 0.5 },
-        colors: ['#1cb0f6', '#58cc02', '#ff9c27'],
-      });
+      if (animationsEnabled) confetti({
+          particleCount: 35,
+          spread: 60,
+          origin: { y: 0.5 },
+          colors: ['#1cb0f6', '#58cc02', '#ff9c27'],
+        });
     } catch {
       // ignore
     }

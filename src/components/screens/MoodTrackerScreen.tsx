@@ -7,6 +7,7 @@ interface MoodTrackerScreenProps {
   moodHistory: MoodEntry[];
   onAddMood: (entry: MoodEntry) => void;
   onResetWeek?: () => void;
+  animationsEnabled: boolean;
 }
 
 const getISOWeekKey = (date: Date = new Date()): string => {
@@ -126,6 +127,7 @@ export const MoodTrackerScreen: React.FC<MoodTrackerScreenProps> = ({
   moodHistory,
   onAddMood,
   onResetWeek,
+  animationsEnabled,
 }) => {
   const [selectedMoodId, setSelectedMoodId] = useState<MoodType>('super');
   const currentMoodObj = MOOD_OPTIONS.find((m) => m.id === selectedMoodId) || MOOD_OPTIONS[0];
@@ -178,12 +180,12 @@ export const MoodTrackerScreen: React.FC<MoodTrackerScreenProps> = ({
   const handleLogCurrentMood = () => {
     sounds.playCheer();
     try {
-      confetti({
-        particleCount: 30,
-        spread: 50,
-        origin: { y: 0.6 },
-        colors: ['#1cb0f6', '#58cc02', '#ff9c27'],
-      });
+      if (animationsEnabled) confetti({
+          particleCount: 30,
+          spread: 50,
+          origin: { y: 0.6 },
+          colors: ['#1cb0f6', '#58cc02', '#ff9c27'],
+        });
     } catch {
       // ignore
     }
