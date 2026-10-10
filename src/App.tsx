@@ -36,7 +36,7 @@ import { FocusSessionScreen } from './components/screens/FocusSessionScreen';
 import { MoodTrackerScreen } from './components/screens/MoodTrackerScreen';
 import { NewTaskModal } from './components/modals/NewTaskModal';
 
-export default function App() {
+export default function App({ onLogout }: { onLogout: () => void }) {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('daily-quests');
 
   // Energy System (5/5 max, depletes 1 per task completed)
@@ -449,6 +449,7 @@ export default function App() {
           onSelectTab={setCurrentTab}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSoundEnabled(!soundEnabled)}
+          onLogout={onLogout}
         />
       </div>
 
